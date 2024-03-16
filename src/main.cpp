@@ -18,20 +18,26 @@ U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0, /* clock=*/ 18, /* data=*/ 19,
 
 
 /*user define variable begin*/
-#define key0 0
-#define key1 1
+#define KEY0 0
+#define KEY1 1
+
+enum g_e_Dir {UP=1,DOWN,LEFT,RIGHT};
+bool g_b_food_eaten = true;
+bool g_b_key_statue = true;
 const uint8_t g_u8_Block[] PROGMEM = {
   0xf0, // B1111000
   0xb0, // B1011000
   0xd0, // B1101000
   0xf0, // B1111000
 };
+uint8_t g_u8_Snake_Headx = 4;
+uint8_t g_u8_Snake_Heady = 4;
 uint8_t g_u8_Snake_Len = 2;
 uint8_t g_u8_FoodX;
 uint8_t g_u8_FoodY;
 uint8_t g_u8_ArrayX[100];
 uint8_t g_u8_ArrayY[100];
-bool g_b_food_eaten = true;
+uint8_t g_u8_dir = 0;
 
 
 
@@ -43,34 +49,51 @@ uint16_t g_u16_SnakeSpeed =  150;
 /*user define function begin*/
 
 // 定义中断服务函数
-void  handleInterrupt_key0() {
-  // 在中断服务函数中进行需要执行的操作
-  Serial.println("External interrupt key0!");
+void  handleInterrupt_KEY0() {
+  
+  if(g_b_key_statue==true)
+  {
+      g_u8_dir = LEFT;
+  }
+  else
+  {
+      g_u8_dir = UP;
+  }
+  g_b_key_statue = !g_b_key_statue;
 }
 
-void  handleInterrupt_key1() {
-  // 在中断服务函数中进行需要执行的操作
-  Serial.println("External interrupt key1!");
+void  handleInterrupt_KEY1() 
+{
+  if(g_b_key_statue==true)
+  {
+      g_u8_dir = RIGHT;
+  }
+  else
+  {
+      g_u8_dir = DOWN;
+  }
+  g_b_key_statue = !g_b_key_statue;
 }
+
 void key_init()
 {
-  pinMode(key0,INPUT_PULLUP);
-  pinMode(key1,INPUT_PULLUP);
+  pinMode(KEY0,INPUT_PULLUP);
+  pinMode(KEY1,INPUT_PULLUP);
 }
 
 void key_scan()
 {
-  if(digitalRead(key0)==0)
+  if(digitalRead(KEY0)==0)
   {
     delay(10);
-    if(digitalRead(key0)==0)
-      Serial.println("key0");
+    if(digitalRead(KEY0)==0)
+      Serial.println("KEY0");
   }
-  else if(digitalRead(key1)==0)
+  else if(digitalRead(KEY1)==0)
   {
     delay(10);
-    if(digitalRead(key1)==0)
-      Serial.println("key1");
+    if(digitalRead(KEY1)==0)
+      Serial.println("KEY1");
   }
 }
 
@@ -109,6 +132,40 @@ void screen(void)
 
 }
 
+void snke_move(void)
+{
+  switch (g_u8_dir)
+  {
+  case UP:
+    g_u8_Snake_Heady -= 4; 
+    break;
+  case DOWN:
+    g_u8_Snake_Heady += 4; 
+    break;
+  case LEFT:
+    g_u8_Snake_Headx -= 4; 
+    break;
+  case RIGHT:
+    g_u8_Snake_Headx += 4; 
+    break;  
+  default:
+    break;
+  }
+  if((g_u8_Snake_Headx == g_u8_FoodX)&&(g_u8_Snake_Heady == g_u8_FoodY))
+  {
+    g_b_food_eaten = true;
+    g_u8_Snake_Len++;
+    g_u16_Score++;
+    g_u16_level = g_u16_Score/5+1;
+  }
+  for(int i= g_u8_Snake_Len-1;i>0;i--)
+  {
+    g_u8_ArrayX[i] = g_u8_ArrayX[i-1];
+    g_u8_ArrayY[i] = g_u8_ArrayY[i-1];
+  }
+  g_u8_ArrayX[0] = g_u8_Snake_Headx;
+  g_u8_ArrayY[0] = g_u8_Snake_Heady;
+}
 void draw_food(void)
 {
   int food_out = 0; // 判断食物是否在蛇体内
@@ -135,10 +192,7 @@ void draw_food(void)
   g_b_food_eaten = false;
 }
 
-void snake_move(void)
-{
 
-}
 /*user define function end*/
 
 
@@ -152,18 +206,21 @@ void setup(void) {
   u8g2.drawStr(1,54,"github.com/olikraus/u8g2");
   
   key_init();
-  attachInterrupt(key0, handleInterrupt_key0, RISING);
-  attachInterrupt(key1, handleInterrupt_key1, RISING);
-  
+  attachInterrupt(KEY0, handleInterrupt_KEY0, RISING);
+  attachInterrupt(KEY1, handleInterrupt_KEY1, RISING);
+  randomSeed(analogRead(3));
 }
 
 
 void loop(void) {
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_6x10_tf);
+  
+  snke_move();
   draw_food();
   screen();
+  
   //key_scan();
   u8g2.sendBuffer();
-  delay(1000);
+  delay(100);
 }
